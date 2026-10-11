@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Protopia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-height app — world map on the left, a working panel on the right (stacks under the map on phones). */
+:root{
+  --paper:#eef0ea; --panel:#fbfbf8; --ink:#17233a; --muted:#5b6677; --line:#d3d8cf;
+  --sea:#dde6e5; --land:#f9f9f4; --border-geo:#c6cdc4; --grat:#cfd9d7;
+  --accent:#d9821e; --accent-ink:#8a4b08; --on-accent:#1b1205; --good:#2e7a55; --chip:#e6e9e1;
+  --shadow:0 1px 2px rgba(23,35,58,.08),0 8px 24px rgba(23,35,58,.08);
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0c141f; --panel:#101b29; --ink:#e6ebf2; --muted:#94a1b3; --line:#233246;
+  --sea:#0a1420; --land:#172539; --border-geo:#24364f; --grat:#14223a;
+  --accent:#f2a43a; --accent-ink:#f6c072; --on-accent:#1b1205; --good:#5cc08f; --chip:#1a2839;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0c141f; --panel:#101b29; --ink:#e6ebf2; --muted:#94a1b3; --line:#233246;
+  --sea:#0a1420; --land:#172539; --border-geo:#24364f; --grat:#14223a;
+  --accent:#f2a43a; --accent-ink:#f6c072; --on-accent:#1b1205; --good:#5cc08f; --chip:#1a2839;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;}
+.top{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:baseline;gap:12px;min-width:0}
+.brand h1{font:800 22px/1 var(--f-display);letter-spacing:-.02em;margin:0;display:flex;align-items:center;gap:8px}
+.brand h1 .orb{width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.stats{display:flex;gap:18px;margin-left:auto;font-variant-numeric:tabular-nums}
+.stat{display:flex;flex-direction:column;line-height:1.15}
+.stat b{font:700 17px var(--f-display)}
+.stat span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:500;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{border-color:transparent;background:transparent;padding:6px 8px;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 420px;min-height:0}
+.mapwrap{position:relative;min-height:0;overflow:hidden;background:var(--sea)}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#map.picking{cursor:crosshair}
+.mapctl{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
+.mapctl .btn{width:36px;height:36px;padding:0;font-size:18px;box-shadow:var(--shadow)}
+.legend{position:absolute;left:14px;bottom:14px;background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);display:flex;gap:14px;align-items:center;box-shadow:var(--shadow);flex-wrap:wrap;max-width:calc(100% - 80px)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.coords{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pickbanner{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:999px;font-size:13px;box-shadow:var(--shadow);white-space:nowrap}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:6px;width:200px;font-size:12px}
+.tip img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:5px;margin-bottom:5px}
+.tip b{display:block;font-size:13px;line-height:1.3}
+
+.panel{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;min-height:0;min-width:0}
+.view{padding:18px 20px 28px;display:flex;flex-direction:column;gap:16px}
+.view h2{font:700 20px/1.2 var(--f-display);letter-spacing:-.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:5px 12px;cursor:pointer;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--chip);color:var(--ink);font-weight:600}
+.cards{display:flex;flex-direction:column;gap:2px}
+.card{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px;border-radius:10px;cursor:pointer;border:1px solid transparent;text-align:left;background:transparent;width:100%}
+.card:hover,.card.on{background:var(--chip)}
+.card img{width:96px;height:64px;object-fit:cover;border-radius:6px;display:block}
+.card .t{font-weight:600;line-height:1.3;font-size:14px}
+.card .p{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>div{height:100%;background:var(--accent);border-radius:3px}
+.votes{display:flex;flex-direction:column;align-items:center;font:700 15px var(--f-display);font-variant-numeric:tabular-nums;min-width:34px}
+.votes small{font:500 10px var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.chip{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--muted)}
+.chip.ex{background:transparent;border:1px dashed var(--muted)}
+
+.compare{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:16/10;background:var(--chip);max-width:100%;user-select:none}
+.compare img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.compare .after{clip-path:inset(0 0 0 var(--cut,50%))}
+.compare .handle{position:absolute;top:0;bottom:0;left:var(--cut,50%);width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25);pointer-events:none}
+.compare .handle::after{content:"";position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.compare .lbl{position:absolute;top:8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:rgba(10,16,26,.72);color:#fff}
+.compare .lbl.l{left:8px}.compare .lbl.r{right:8px}
+.compare input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+.prompt{font-family:var(--f-mono);font-size:12.5px;line-height:1.55;background:var(--chip);border-radius:8px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.quote{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin:0;font-size:15px}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;font-variant-numeric:tabular-nums}
+.meta div{background:var(--chip);border-radius:8px;padding:8px 10px;min-width:0}
+.meta b{display:block;font:700 16px var(--f-display)}
+.meta span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.vote{display:inline-flex;align-items:center;gap:8px}
+.vote[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:transparent;padding:8px 10px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 6px;border-bottom:1px solid var(--line)}
+td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;white-space:nowrap}
+.tbl{overflow-x:auto}
+.empty{color:var(--muted);font-size:13px;padding:6px 0}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec h3{font:700 15px var(--f-display);margin:0}
+.addrow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto;gap:6px}
+.addrow.two{grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;font-weight:600;color:var(--muted)}
+input[type=text],input[type=number],textarea,select{width:100%;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+textarea{resize:vertical;min-height:70px}
+.drop{border:1.5px dashed var(--muted);border-radius:10px;padding:22px 14px;text-align:center;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;gap:8px;align-items:center}
+.drop.over{border-color:var(--accent);background:var(--chip)}
+.drop img{max-height:200px;border-radius:8px}
+.steps{display:flex;gap:6px;font-size:12px;color:var(--muted)}
+.steps span{flex:1;padding-top:6px;border-top:3px solid var(--line)}
+.steps span.on{border-top-color:var(--accent);color:var(--ink);font-weight:600}
+.steps span.done{border-top-color:var(--good)}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.note{font-size:12.5px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:14px;box-shadow:var(--shadow);z-index:9;max-width:calc(100% - 32px)}
+.pl{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.pl b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.banner{font-size:12.5px;background:var(--chip);border-radius:8px;padding:8px 10px;color:var(--muted)}
+
+@media (max-width:860px){
+  .main{grid-template-columns:1fr;grid-template-rows:52vh auto}
+  .app{height:auto;min-height:100%}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .stats{margin-left:0;order:3;width:100%}
+  .top{padding:10px 16px}
+  .view{padding:16px 16px 28px}
+  .legend{display:none}
+}
+@media (max-width:420px){.card{grid-template-columns:72px minmax(0,1fr) auto}.card img{width:72px;height:52px}.brand p{display:none}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><h1><span class="orb" aria-hidden="true"></span>Protopia</h1><p>See a place. Picture it better. Build it together.</p></div>
+    <div class="stats" aria-label="Totals">
+      <div class="stat"><b id="sProjects">0</b><span>Projects</span></div>
+      <div class="stat"><b id="sVotes">0</b><span>Upvotes</span></div>
+      <div class="stat"><b id="sFunds">€0</b><span>Pledged</span></div>
+    </div>
+    <button class="btn primary" id="newBtn" type="button">+ New vision</button>
+  </header>
+  <div class="main">
+    <div class="mapwrap" id="mapwrap">
+      <canvas id="map" aria-label="World map of projects"></canvas>
+      <div class="pickbanner" id="pickBanner" hidden>Click the map to place your project</div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Project (size = upvotes)</span><span class="coords" id="cursorPos">—</span></div>
+      <div class="mapctl">
+        <button class="btn" id="zin" type="button" aria-label="Zoom in">+</button>
+        <button class="btn" id="zout" type="button" aria-label="Zoom out">−</button>
+        <button class="btn" id="zreset" type="button" aria-label="Show whole world" title="Whole world">◎</button>
+      </div>
+    </div>
+    <aside class="panel" id="panel"></aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const eur = n => "€" + Math.round(n || 0).toLocaleString("en-US");
+const num = n => Math.round(n || 0).toLocaleString("en-US");
+const fmtLL = (lat,lng) => `${Math.abs(lat).toFixed(3)}°${lat>=0?"N":"S"} ${Math.abs(lng).toFixed(3)}°${lng>=0?"E":"W"}`;
+const uidLocal = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+function rng(seed){ let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+let toastT; function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,3200); }
+
+/* ---------- procedural street scenes (stand-ins for real photos in the examples) ---------- */
+function drawScene(kind, after, seed, W=720, H=450){
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"); const R=rng(seed);
+  const vx=W*0.52, vy=H*0.44;
+  // sky
+  let sk=g.createLinearGradient(0,0,0,vy+20);
+  if(after){ sk.addColorStop(0,"#26355e"); sk.addColorStop(.65,"#a8607a"); sk.addColorStop(1,"#f2a65e"); }
+  else { sk.addColorStop(0,"#8d9497"); sk.addColorStop(1,"#c9cbc6"); }
+  g.fillStyle=sk; g.fillRect(0,0,W,vy+20);
+  const L=(a,b,t)=>a+(b-a)*t;
+  const leftWall=[[0,0],[vx-50,vy-70],[vx-50,vy+8],[0,H*0.72]];
+  const rightWall=[[W,0],[vx+50,vy-70],[vx+50,vy+8],[W,H*0.72]];
+  function poly(p,fill){g.beginPath();g.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)g.lineTo(p[i][0],p[i][1]);g.closePath();g.fillStyle=fill;g.fill();}
+  function wall(p, base, side){
+    poly(p, base);
+    // windows in perspective
+    for(let i=0;i<7;i++){
+      const t0=Math.pow(i/7,0.75), t1=Math.pow((i+0.55)/7,0.75);
+      for(let r=0;r<4;r++){
+        const yA=0.12+r*0.19, yB=yA+0.1;
+        const pt=(t,yy)=>{const top=[L(p[0][0],p[1][0],t),L(p[0][1],p[1][1],t)];const bot=[L(p[3][0],p[2][0],t),L(p[3][1],p[2][1],t)];return [top[0],L(top[1],bot[1],yy)];};
+        const q=[pt(t0,yA),pt(t1,yA),pt(t1,yB),pt(t0,yB)];
+        const lit = after && R()<0.6;
+        poly(q, lit ? (R()<0.5?"#ffd28a":"#f6b765") : (after?"#2b2f45": (R()<0.2?"#55595c":"#6e7476")));
+      }
+    }
+    if(!after && side==="l"){ g.strokeStyle="#4a3f52"; g.lineWidth=3; g.beginPath(); for(let k=0;k<6;k++){g.lineTo(30+k*14+R()*8, H*0.55+R()*30);} g.stroke(); }
+  }
+  // ground
+  poly([[0,H*0.72],[vx-50,vy+8],[vx+50,vy+8],[W,H*0.72],[W,H],[0,H]], after?"#3a3a46":"#6a6c6c");
+  const swL=[[0,H*0.72],[vx-50,vy+8],[vx-22,vy+8],[W*0.36,H]];
+  const swR=[[W,H*0.72],[vx+50,vy+8],[vx+22,vy+8],[W*0.64,H]];
+  // per-kind right side
+  if(kind==="riverside"){
+    poly([[W,vy-6],[vx+22,vy+8],[W*0.64,H],[W,H]], after?"#2b4f74":"#5c6b66");
+    for(let i=0;i<30;i++){g.fillStyle=after?"rgba(255,200,120,"+(0.25+R()*0.4)+")":"rgba(220,230,225,.18)";const y=L(vy+12,H,R());g.fillRect(L(vx+40,W,R()),y,8+R()*30,2);}
+    g.fillStyle=after?"#3b4a66":"#7a8282"; g.fillRect(vx+60,vy-24,W-vx-60,30);
+  } else if(kind==="park"){
+    poly(rightWall, after?"#2f4a3a":"#7b7a6a");
+  } else { wall(rightWall, after?"#3b3f5c":"#888b88","r"); }
+  wall(leftWall, after?"#43405c":"#8f918d","l");
+  poly(swL, after?"#b9b3a6":"#9a9a94");
+  if(kind!=="riverside") poly(swR, after?"#b9b3a6":"#9a9a94");
+  // paving joints (after) or cracks (before)
+  g.lineWidth=1;
+  if(after){ g.strokeStyle="rgba(80,70,60,.35)"; for(let i=1;i<14;i++){const t=Math.pow(i/14,1.6);g.beginPath();g.moveTo(L(vx-50,0,t),L(vy+8,H*0.72,t));g.lineTo(L(vx-22,W*0.36,t),L(vy+8,H,t));g.stroke();}}
+  else { g.strokeStyle="rgba(40,40,40,.55)"; for(let i=0;i<9;i++){g.beginPath();let x=L(20,W*0.3,R()),y=L(H*0.75,H,R());g.moveTo(x,y);for(let k=0;k<4;k++){x+=R()*24-10;y+=R()*16-8;g.lineTo(x,y);}g.stroke();}}
+  // road markings
+  g.strokeStyle=after?"rgba(255,230,180,.55)":"rgba(230,230,220,.35)"; g.lineWidth=3; g.setLineDash([18,16]);
+  g.beginPath(); g.moveTo(vx,vy+10); g.lineTo(W*0.5,H); g.stroke(); g.setLineDash([]);
+  const sidePts = t => ({ x:L(vx-36,W*0.12,t), y:L(vy+8,H*0.9,t), s:L(0.12,1,t) });
+  if(after){
+    // trees
+    if(kind!=="market") for(let i=0;i<5;i++){const t=Math.pow((i+0.6)/5,1.4),p=sidePts(t);
+      g.fillStyle="#3c2f26"; g.fillRect(p.x-3*p.s,p.y-90*p.s,6*p.s,90*p.s);
+      g.fillStyle=kind==="park"?"#3f7a4b":"#4b7f55"; g.beginPath(); g.arc(p.x,p.y-110*p.s,42*p.s,0,7); g.fill();
+      g.fillStyle="rgba(255,220,150,.18)"; g.beginPath(); g.arc(p.x+10*p.s,p.y-118*p.s,24*p.s,0,7); g.fill(); }
+    if(kind==="park"){ for(let i=0;i<6;i++){const t=(i+0.5)/6;const x=L(vx+40,W*0.95,t),y=L(vy+20,H*0.7,t),s=L(.2,1,t);g.fillStyle="#2f6b43";g.beginPath();g.arc(x,y-60*s,50*s,0,7);g.fill();} }
+    if(kind==="market"){ for(let i=0;i<5;i++){const t=Math.pow((i+0.5)/5,1.3),p=sidePts(t);const col=["#e2604d","#f2b44a","#3f8fb3","#e2604d","#6aa36c"][i];g.fillStyle=col;g.beginPath();g.moveTo(p.x-40*p.s,p.y-70*p.s);g.lineTo(p.x+60*p.s,p.y-70*p.s);g.lineTo(p.x+50*p.s,p.y-50*p.s);g.lineTo(p.x-30*p.s,p.y-50*p.s);g.fill();g.fillStyle="#6b4a33";g.fillRect(p.x-28*p.s,p.y-50*p.s,70*p.s,26*p.s);} }
+    // lamps with glow
+    for(let i=0;i<6;i++){const t=Math.pow((i+0.3)/6,1.5),p=sidePts(t);const x=p.x+18*p.s,top=p.y-150*p.s;
+      g.strokeStyle="#1f2230"; g.lineWidth=Math.max(1,3*p.s); g.beginPath(); g.moveTo(x,p.y); g.lineTo(x,top); g.stroke();
+      g.globalCompositeOperation="lighter"; const rg=g.createRadialGradient(x,top,0,x,top,70*p.s+8); rg.addColorStop(0,"rgba(255,214,140,.95)"); rg.addColorStop(.2,"rgba(255,180,90,.45)"); rg.addColorStop(1,"rgba(255,160,60,0)"); g.fillStyle=rg; g.beginPath(); g.arc(x,top,70*p.s+8,0,7); g.fill();
+      const pool=g.createRadialGradient(x,p.y,0,x,p.y,90*p.s); pool.addColorStop(0,"rgba(255,190,110,.35)"); pool.addColorStop(1,"rgba(255,190,110,0)"); g.fillStyle=pool; g.beginPath(); g.ellipse(x,p.y,90*p.s,24*p.s,0,0,7); g.fill(); g.globalCompositeOperation="source-over"; }
+    // bench
+    const b=sidePts(0.78); g.fillStyle="#5a4130"; g.fillRect(b.x+30,b.y-22,70,7); g.fillRect(b.x+34,b.y-15,4,15); g.fillRect(b.x+92,b.y-15,4,15);
+    // string lights
+    g.globalCompositeOperation="lighter"; for(let i=0;i<40;i++){const t=i/40;const x=L(30,W-30,t),y=60+Math.sin(t*Math.PI)*40+R()*3;g.fillStyle="rgba(255,215,150,.9)";g.beginPath();g.arc(x,y,2.2,0,7);g.fill();} g.globalCompositeOperation="source-over";
+  } else {
+    // litter, puddles, dead lamp
+    for(let i=0;i<40;i++){const p=sidePts(0.3+R()*0.7);g.fillStyle=["#d8d2c4","#4d6a8a","#b94d3c","#e7e2d8","#30302e"][i%5];g.fillRect(p.x+(R()-0.5)*90*p.s,p.y+(R()-0.6)*30*p.s,(4+R()*8)*p.s,(3+R()*5)*p.s);}
+    for(let i=0;i<3;i++){const p=sidePts(0.45+i*0.18);g.fillStyle="rgba(70,80,85,.55)";g.beginPath();g.ellipse(p.x+20*p.s,p.y,40*p.s,8*p.s,0,0,7);g.fill();}
+    const p=sidePts(0.7); g.strokeStyle="#3c3e40"; g.lineWidth=4; g.beginPath(); g.moveTo(p.x+20,p.y); g.lineTo(p.x+24,p.y-140); g.lineTo(p.x+44,p.y-128); g.stroke();
+    if(kind==="park"){ for(let i=0;i<20;i++){g.fillStyle="#8a8770";g.fillRect(L(vx+60,W,R()),L(vy+10,H*0.7,R()),6,4);} }
+  }
+  // grade
+  const vg=g.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.9); vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,after?"rgba(10,10,30,.45)":"rgba(30,30,30,.3)"); g.fillStyle=vg; g.fillRect(0,0,W,H);
+  return c.toDataURL("image/jpeg",0.82);
+}
+
+/* ---------- simulated "AI visualization" of an uploaded photo ---------- */
+function visualizePhoto(src, prompt, variant){
+  return new Promise((res,rej)=>{
+    const img=new Image(); img.onerror=rej;
+    img.onload=()=>{
+      const W=Math.min(960,img.naturalWidth), H=Math.round(img.naturalHeight*W/img.naturalWidth);
+      const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"); const R=rng(1234+variant*97);
+      const p=(prompt||"").toLowerCase();
+      const wantLight=/light|lamp|glow|night|lit|evening|bright/.test(p), wantGreen=/tree|green|plant|park|garden|shade|flower/.test(p), wantClean=/clean|tidy|pav|sidewalk|walk|path|beautiful|nice/.test(p);
+      const any=wantLight||wantGreen||wantClean;
+      g.filter=`saturate(${1.25+variant*0.05}) contrast(1.08) brightness(${wantLight?0.9:1.05})`; g.drawImage(img,0,0,W,H); g.filter="none";
+      g.globalCompositeOperation="soft-light"; g.fillStyle=wantLight?"rgba(255,150,70,.45)":"rgba(255,190,120,.3)"; g.fillRect(0,0,W,H);
+      if(wantClean||!any){ g.globalCompositeOperation="screen"; const lg=g.createLinearGradient(0,H*0.55,0,H); lg.addColorStop(0,"rgba(255,245,230,0)"); lg.addColorStop(1,"rgba(255,240,220,.22)"); g.fillStyle=lg; g.fillRect(0,H*0.55,W,H*0.45); }
+      g.globalCompositeOperation="source-over";
+      if(wantGreen||!any){ for(const side of [0,1]){ for(let i=0;i<70;i++){ const x=side?W-R()*W*0.22:R()*W*0.22, y=R()*H*0.32; g.fillStyle=`rgba(${50+R()*30|0},${105+R()*40|0},${60+R()*20|0},${0.55+R()*0.3})`; g.beginPath(); g.arc(x,y,8+R()*W*0.03,0,7); g.fill(); } }
+        for(let i=0;i<3;i++){ const x=W*(0.18+i*0.32), y=H*0.94, s=W*0.05; g.fillStyle="#5b4636"; g.fillRect(x-s,y-s*0.5,s*2,s*0.5); g.fillStyle="#4c8a54"; g.beginPath(); g.arc(x,y-s*0.65,s*0.8,0,7); g.fill(); } }
+      if(wantLight||!any){ g.globalCompositeOperation="lighter";
+        for(const side of [0,1]) for(let i=0;i<4;i++){ const t=i/4, x=side? L(W*0.92,W*0.6,t):L(W*0.08,W*0.4,t), base=L(H*0.95,H*0.55,t), s=L(1,0.35,t), top=base-H*0.42*s;
+          g.globalCompositeOperation="source-over"; g.strokeStyle="rgba(25,25,35,.9)"; g.lineWidth=Math.max(1.5,5*s); g.beginPath(); g.moveTo(x,base); g.lineTo(x,top); g.stroke();
+          g.globalCompositeOperation="lighter"; const r=W*0.09*s+6; const rg=g.createRadialGradient(x,top,0,x,top,r); rg.addColorStop(0,"rgba(255,220,150,.95)"); rg.addColorStop(.25,"rgba(255,180,90,.45)"); rg.addColorStop(1,"rgba(255,160,60,0)"); g.fillStyle=rg; g.beginPath(); g.arc(x,top,r,0,7); g.fill();
+          const pool=g.createRadialGradient(x,base,0,x,base,r*1.4); pool.addColorStop(0,"rgba(255,190,110,.32)"); pool.addColorStop(1,"rgba(255,190,110,0)"); g.fillStyle=pool; g.beginPath(); g.ellipse(x,base,r*1.4,r*0.35,0,0,7); g.fill(); }
+        for(let i=0;i<44;i++){ const t=i/44; g.fillStyle="rgba(255,215,150,.9)"; g.beginPath(); g.arc(L(W*0.05,W*0.95,t), H*0.08+Math.sin(t*Math.PI)*H*0.08, Math.max(1.5,W*0.003),0,7); g.fill(); } }
+      g.globalCompositeOperation="source-over";
+      const vg=g.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75); vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(10,12,30,.4)"); g.fillStyle=vg; g.fillRect(0,0,W,H);
+      g.font=`600 ${Math.max(11,W*0.016)|0}px "IBM Plex Mono", monospace`; const label="CONCEPT PREVIEW · SIMULATED"; const tw=g.measureText(label).width; g.fillStyle="rgba(10,16,26,.7)"; g.fillRect(10,H-34,tw+20,24); g.fillStyle="#ffd99a"; g.fillText(label,20,H-17);
+      res(c.toDataURL("image/jpeg",0.8));
+    };
+    img.src=src;
+  });
+  function L(a,b,t){return a+(b-a)*t;}
+}
+function shrink(src, maxW=720, q=0.74){
+  return new Promise((res,rej)=>{ const img=new Image(); img.onerror=rej; img.onload=()=>{ const W=Math.min(maxW,img.naturalWidth),H=Math.round(img.naturalHeight*W/img.naturalWidth); const c=document.createElement("canvas"); c.width=W; c.height=H; c.getContext("2d").drawImage(img,0,0,W,H); res(c.toDataURL("image/jpeg",q)); }; img.src=src; });
+}
+
+/* ---------- example projects (clearly marked as examples) ---------- */
+const EXAMPLES = [
+ {id:"ex-rotterdam", title:"Lit walkway on Nieuwe Binnenweg", place:"Rotterdam, Netherlands", lat:51.9155, lng:4.4655, category:"Sidewalk", kind:"sidewalk", seed:11,
+  prompt:"A beautiful sidewalk with nice lights", context:"Busy evening route between the cafés and the metro. Pavement is broken, lighting is dim and people avoid it after dark.", budget:48000, baseVotes:214,
+  specs:[{label:"Lamp spacing",value:"12 m, both sides"},{label:"Colour temperature",value:"3000 K warm white"},{label:"Average illuminance",value:"15 lux at ground level"},{label:"Paving",value:"Permeable concrete pavers, 210 × 105 mm"},{label:"Length",value:"180 m"}],
+  resources:[{item:"LED post-top luminaires, IP66",qty:30,unit:"pcs"},{item:"Permeable pavers",qty:540,unit:"m²"},{item:"Street trees in root cells",qty:12,unit:"pcs"},{item:"Benches, FSC hardwood",qty:6,unit:"pcs"}],
+  labour:[{role:"Paving crew",hours:640},{role:"Electrician",hours:120},{role:"Landscaper",hours:80},{role:"Volunteer clean-up",hours:60}]},
+ {id:"ex-manila", title:"Pasig riverside promenade", place:"Manila, Philippines", lat:14.5930, lng:120.9790, category:"Riverside", kind:"riverside", seed:23,
+  prompt:"A clean riverside walk with warm lights and trees", context:"Neglected bank next to the river, used as a dumping spot. Could become a shaded walk for residents and commuters.", budget:96000, baseVotes:389,
+  specs:[{label:"Walkway width",value:"4.5 m"},{label:"Length",value:"420 m"},{label:"Railing height",value:"1.1 m, galvanised steel"},{label:"Flood level design",value:"+1.2 m above mean high water"}],
+  resources:[{item:"Solar LED lamps",qty:46,unit:"pcs"},{item:"Concrete for walkway",qty:310,unit:"m³"},{item:"Native shade trees (narra, talisay)",qty:60,unit:"pcs"},{item:"Waste bins with lids",qty:20,unit:"pcs"}],
+  labour:[{role:"Civil works crew",hours:1800},{role:"Electrician",hours:160},{role:"Community clean-up days",hours:400}]},
+ {id:"ex-cdmx", title:"Pocket park on a vacant lot", place:"Mexico City, Mexico", lat:19.4170, lng:-99.1620, category:"Park", kind:"park", seed:37,
+  prompt:"A small green park with trees, seating and soft lighting", context:"Fenced vacant lot full of rubble. Families nearby have no green space within a 10-minute walk.", budget:35000, baseVotes:152,
+  specs:[{label:"Plot size",value:"620 m²"},{label:"Planting",value:"Drought-tolerant natives, drip irrigation"},{label:"Lighting",value:"Bollards, 2700 K, dark-sky compliant"}],
+  resources:[{item:"Topsoil",qty:180,unit:"m³"},{item:"Trees (jacaranda, fresno)",qty:14,unit:"pcs"},{item:"Lighting bollards",qty:18,unit:"pcs"}],
+  labour:[{role:"Rubble removal",hours:220},{role:"Landscaper",hours:300},{role:"Volunteer planting day",hours:150}]},
+ {id:"ex-bangkok", title:"Shaded market street", place:"Bangkok, Thailand", lat:13.7400, lng:100.5130, category:"Street", kind:"market", seed:41,
+  prompt:"A tidy market street with colourful canopies, trees and evening lights", context:"Narrow street market with tangled wires, no shade and flooding after rain.", budget:62000, baseVotes:276,
+  specs:[{label:"Canopy material",value:"PVC-coated polyester, UV 50+"},{label:"Drainage",value:"Linear drain each side, 150 mm"},{label:"Stall grid",value:"2.5 × 2.5 m bays"}],
+  resources:[{item:"Retractable canopies",qty:40,unit:"pcs"},{item:"Linear drainage channel",qty:260,unit:"m"},{item:"Festoon lighting",qty:400,unit:"m"}],
+  labour:[{role:"Drainage crew",hours:520},{role:"Electrician (cable tidy-up)",hours:200}]},
+ {id:"ex-bogota", title:"Cycle lane with planters", place:"Bogotá, Colombia", lat:4.6530, lng:-74.0600, category:"Street", kind:"sidewalk", seed:53,
+  prompt:"A protected cycle lane separated by planters, with good lighting", context:"Commuter route where cyclists share a fast lane with buses.", budget:71000, baseVotes:98,
+  specs:[{label:"Lane width",value:"2.2 m bidirectional"},{label:"Separation",value:"Concrete planters, 0.6 m wide"},{label:"Length",value:"1.1 km"}],
+  resources:[{item:"Precast planters",qty:220,unit:"pcs"},{item:"Lane marking paint",qty:900,unit:"L"},{item:"LED lamps",qty:55,unit:"pcs"}],
+  labour:[{role:"Road crew",hours:900},{role:"Planting volunteers",hours:200}]}
+];
+EXAMPLES.forEach(p=>{ p.example=true; p.before=drawScene(p.kind,false,p.seed); p.after=drawScene(p.kind,true,p.seed); p.createdAt=0; });
+const EX_PLEDGES = { "ex-rotterdam":{funds:21400,labour:220}, "ex-manila":{funds:31800,labour:640}, "ex-cdmx":{funds:9200,labour:150}, "ex-bangkok":{funds:18700,labour:90}, "ex-bogota":{funds:6100,labour:40} };
+
+/* ---------- state + storage ---------- */
+const S = { userProjects:[], votes:[], pledges:[], uid:null, db:null, mode:"local", sel:null, sort:"top", view:"list", tab:"req", picking:false, draft:null, sample:null };
+try{ const saved=JSON.parse(localStorage.getItem("oo-local")||"null"); if(saved){ S.userProjects=saved.userProjects||[]; S.votes=saved.votes||[]; S.pledges=saved.pledges||[]; } }catch(e){}
+try{ S.uid = localStorage.getItem("oo-uid") || uidLocal(); localStorage.setItem("oo-uid",S.uid); }catch(e){ S.uid=uidLocal(); }
+function saveLocal(){ if(S.mode!=="local") return; try{ localStorage.setItem("oo-local", JSON.stringify({userProjects:S.userProjects,votes:S.votes,pledges:S.pledges})); }catch(e){} }
+
+const allProjects = () => [...S.userProjects, ...EXAMPLES];
+const byId = id => allProjects().find(p=>p.id===id);
+const votesFor = p => (p.baseVotes||0) + S.votes.filter(v=>v.pid===p.id).length;
+const iVoted = p => S.votes.some(v=>v.pid===p.id && v.uid===S.uid);
+function pledgeTotals(p){ const ex=EX_PLEDGES[p.id]||{funds:0,labour:0}; const t={funds:ex.funds,labour:ex.labour,materials:0,count:0};
+  S.pledges.filter(x=>x.pid===p.id).forEach(x=>{ t.count++; if(x.kind==="funds") t.funds+=+x.amount||0; else if(x.kind==="labour") t.labour+=+x.amount||0; else t.materials++; }); return t; }
+const labourNeed = p => (p.labour||[]).reduce((a,b)=>a+(+b.hours||0),0);
+
+async function dbWrite(fn, localFn){
+  if(S.mode==="db"){ try{ await fn(S.db); return true; }catch(e){ toast(e && e.code==="invalid_argument" ? "You can view this map but not change it." : "Couldn't save: " + (e && e.message || "try again")); return false; } }
+  localFn(); saveLocal(); renderAll(); return true;
+}
+async function connect(){
+  if(!window.claude || typeof window.claude.use!=="function") return;
+  let db=null, user=null;
+  try{ [db,user]=await Promise.all([window.claude.use("db"), window.claude.use("user")]); }catch(e){}
+  if(user){ try{ const id=await user.id(); if(id) S.uid=id; }catch(e){} }
+  try{ S.sample = await window.claude.use("sample"); }catch(e){ S.sample=null; }
+  if(!db) { renderAll(); return; }
+  S.db=db; S.mode="db"; S.userProjects=[]; S.votes=[]; S.pledges=[];
+  const sub=(col,key)=>db.collection(col).onSnapshot(s=>{ S[key]=s.docs.map(d=>({id:d.id,...d.data()})); renderAll(); }, e=>{ if(e && e.code!=="unavailable") toast("Live updates paused: "+e.message); });
+  sub("projects","userProjects"); sub("votes","votes"); sub("pledges","pledges");
+  renderAll();
+}
+
+/* ---------- map ---------- */
+let land = {type:"FeatureCollection",features:[]}, borders = {type:"MultiLineString",coordinates:[]};
+fetch("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json").then(r=>r.json()).then(topo=>{
+  land = topojson.feature(topo, topo.objects.land);
+  borders = topojson.mesh(topo, topo.objects.countries, (a,b)=>a!==b); draw();
+}).catch(()=>toast("Couldn't load the world map outlines."));
+const graticule = d3.geoGraticule10();
+const canvas = $("#map"), ctx = canvas.getContext("2d"), wrap=$("#mapwrap");
+let W=0,H=0,dpr=1, projection=d3.geoNaturalEarth1(), path=d3.geoPath(projection,ctx), T=d3.zoomIdentity, tempPin=null, hoverId=null;
+function resize(){ dpr=window.devicePixelRatio||1; W=wrap.clientWidth; H=wrap.clientHeight; canvas.width=W*dpr; canvas.height=H*dpr; projection.fitExtent([[12,12],[W-12,H-12]],{type:"Sphere"}); draw(); }
+function pinXY(p){ const xy=projection([p.lng,p.lat]); return xy ? [T.applyX(xy[0]), T.applyY(xy[1])] : null; }
+function draw(){
+  if(!W) return;
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=css("--sea"); ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.translate(T.x,T.y); ctx.scale(T.k,T.k);
+  ctx.beginPath(); path(graticule); ctx.strokeStyle=css("--grat"); ctx.lineWidth=0.8/T.k; ctx.stroke();
+  ctx.beginPath(); path(land); ctx.fillStyle=css("--land"); ctx.fill();
+  ctx.beginPath(); path(borders); ctx.strokeStyle=css("--border-geo"); ctx.lineWidth=0.9/T.k; ctx.stroke();
+  ctx.beginPath(); path({type:"Sphere"}); ctx.strokeStyle=css("--line"); ctx.lineWidth=1/T.k; ctx.stroke();
+  ctx.restore();
+  const acc=css("--accent"), panel=css("--panel"), ink=css("--ink");
+  const list=allProjects().slice().sort((a,b)=>votesFor(a)-votesFor(b));
+  for(const p of list){ const xy=pinXY(p); if(!xy) continue; const v=votesFor(p); const r=5+Math.min(9,Math.sqrt(v)/2.2); const on=p.id===S.sel||p.id===hoverId;
+    ctx.beginPath(); ctx.arc(xy[0],xy[1],r+(on?7:4),0,7); ctx.fillStyle=acc; ctx.globalAlpha=on?0.3:0.18; ctx.fill(); ctx.globalAlpha=1;
+    ctx.beginPath(); ctx.arc(xy[0],xy[1],r,0,7); ctx.fillStyle=acc; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=on?ink:panel; ctx.stroke();
+    if(T.k>3.5){ ctx.font='600 12px "IBM Plex Sans", sans-serif'; ctx.fillStyle=ink; ctx.strokeStyle=css("--paper"); ctx.lineWidth=3; ctx.strokeText(p.title, xy[0]+r+6, xy[1]+4); ctx.fillText(p.title, xy[0]+r+6, xy[1]+4); }
+  }
+  if(tempPin){ const xy=projection([tempPin.lng,tempPin.lat]); const x=T.applyX(xy[0]),y=T.applyY(xy[1]);
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y-20); ctx.arc(x,y-24,10,Math.PI*0.75,Math.PI*0.25); ctx.closePath(); ctx.fillStyle=ink; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y-24,4,0,7); ctx.fillStyle=acc; ctx.fill(); }
+}
+const zoom=d3.zoom().scaleExtent([1,80]).on("zoom",e=>{ T=e.transform; draw(); });
+d3.select(canvas).call(zoom).on("dblclick.zoom",null);
+function flyTo(p,k){ const xy=projection([p.lng,p.lat]); if(!xy) return; const kk=Math.max(T.k,k||8);
+  d3.select(canvas).transition().duration(matchMedia("(prefers-reduced-motion: reduce)").matches?0:900).call(zoom.transform, d3.zoomIdentity.translate(W/2-xy[0]*kk, H/2-xy[1]*kk).scale(kk)); }
+$("#zin").onclick=()=>d3.select(canvas).transition().duration(300).call(zoom.scaleBy,2);
+$("#zout").onclick=()=>d3.select(canvas).transition().duration(300).call(zoom.scaleBy,0.5);
+$("#zreset").onclick=()=>d3.select(canvas).transition().duration(500).call(zoom.transform,d3.zoomIdentity);
+function hit(mx,my){ let best=null,bd=16; for(const p of allProjects()){ const xy=pinXY(p); if(!xy) continue; const d=Math.hypot(xy[0]-mx,xy[1]-my); if(d<bd){bd=d;best=p;} } return best; }
+function invert(mx,my){ return projection.invert([T.invertX(mx),T.invertY(my)]); }
+canvas.addEventListener("click",e=>{ const r=canvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  if(S.picking){ const ll=invert(mx,my); if(!ll||!d3.geoContains({type:"Sphere"},ll)) return; tempPin={lng:ll[0],lat:ll[1]}; S.draft.lat=+ll[1].toFixed(5); S.draft.lng=+ll[0].toFixed(5); S.picking=false; canvas.classList.remove("picking"); $("#pickBanner").hidden=true; draw(); renderPanel(); return; }
+  const p=hit(mx,my); if(p) openProject(p.id,true); });
+canvas.addEventListener("mousemove",e=>{ const r=canvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top; const ll=invert(mx,my);
+  $("#cursorPos").textContent = ll && isFinite(ll[0]) ? fmtLL(ll[1],ll[0]) : "—";
+  const p=S.picking?null:hit(mx,my); const tip=$("#tip");
+  if(p){ if(hoverId!==p.id){ hoverId=p.id; draw(); } canvas.style.cursor="pointer"; tip.innerHTML=`<img src="${p.after}" alt=""><b>${esc(p.title)}</b><span class="note">${esc(p.place)} · ${num(votesFor(p))} upvotes</span>`; tip.hidden=false;
+    const tx=Math.min(mx+14, W-212), ty=Math.max(8, Math.min(my+14, H-190)); tip.style.left=tx+"px"; tip.style.top=ty+"px"; }
+  else { if(hoverId){ hoverId=null; draw(); } canvas.style.cursor=""; tip.hidden=true; } });
+canvas.addEventListener("mouseleave",()=>{ $("#tip").hidden=true; if(hoverId){hoverId=null;draw();} });
+new ResizeObserver(resize).observe(wrap);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+/* ---------- panel views ---------- */
+const panel=$("#panel");
+function renderStats(){ const ps=allProjects(); $("#sProjects").textContent=num(ps.length); $("#sVotes").textContent=num(ps.reduce((a,p)=>a+votesFor(p),0)); $("#sFunds").textContent=eur(ps.reduce((a,p)=>a+pledgeTotals(p).funds,0)); }
+function renderAll(){ renderStats(); renderPanel(); draw(); }
+function renderPanel(){ if(S.view==="list") renderList(); else if(S.view==="detail") renderDetail(); else renderCreate(); }
+
+function renderList(){
+  const ps=allProjects().slice().sort(S.sort==="top" ? (a,b)=>votesFor(b)-votesFor(a) : (a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  panel.innerHTML=`<div class="view">
+    <div class="row spread"><h2>Projects around the world</h2>
+      <div class="seg" role="group" aria-label="Sort"><button type="button" data-sort="top" aria-pressed="${S.sort==="top"}">Top</button><button type="button" data-sort="new" aria-pressed="${S.sort==="new"}">New</button></div></div>
+    ${S.mode==="local"?`<div class="banner">Prototype mode: projects you add here stay in this browser. On the published page they are shared with everyone who opens it.</div>`:""}
+    <div class="cards">${ps.map(p=>{ const t=pledgeTotals(p), pct=p.budget?Math.min(100,t.funds/p.budget*100):0;
+      return `<button type="button" class="card${p.id===S.sel?" on":""}" data-open="${esc(p.id)}">
+        <img src="${p.after}" alt="">
+        <div style="min-width:0"><div class="t">${esc(p.title)}</div><div class="p">${esc(p.place||fmtLL(p.lat,p.lng))}${p.example?' · <span class="chip ex">Example</span>':""}</div>
+          <div class="bar" title="${Math.round(pct)}% funded"><div style="width:${pct}%"></div></div></div>
+        <div class="votes">${num(votesFor(p))}<small>votes</small></div></button>`;}).join("")}</div>
+    <p class="note">Tap a pin or a project to see the current situation next to the vision.</p></div>`;
+  panel.querySelectorAll("[data-sort]").forEach(b=>b.onclick=()=>{S.sort=b.dataset.sort;renderList();});
+  panel.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openProject(b.dataset.open,true));
+}
+function openProject(id,fly){ S.sel=id; S.view="detail"; S.tab="req"; const p=byId(id); if(p&&fly) flyTo(p,8); renderPanel(); draw(); panel.scrollTop=0; }
+
+function compareHTML(before,after){ return `<div class="compare" style="--cut:50%"><img src="${before}" alt="Current situation"><img class="after" src="${after}" alt="Visualized project"><div class="handle"></div><span class="lbl l">Now</span><span class="lbl r">Vision</span><input type="range" min="0" max="100" value="50" aria-label="Compare current situation and vision"></div>`; }
+function wireCompare(root){ root.querySelectorAll(".compare input").forEach(i=>i.oninput=()=>i.parentElement.style.setProperty("--cut",i.value+"%")); }
+
+function tableHTML(rows,cols){ if(!rows||!rows.length) return `<div class="empty">Nothing added yet.</div>`;
+  return `<div class="tbl"><table><thead><tr>${cols.map(c=>`<th class="${c.n?"n":""}">${c.h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c.n?"n":""}">${esc(c.f?c.f(r):r[c.k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; }
+
+function renderDetail(){
+  const p=byId(S.sel); if(!p){ S.view="list"; return renderList(); }
+  const t=pledgeTotals(p), need=labourNeed(p), pct=p.budget?Math.min(100,t.funds/p.budget*100):0, voted=iVoted(p);
+  const editable=!p.example;
+  const reqTab=`
+    ${editable && S.sample?`<div class="row"><button class="btn" type="button" id="aiDraft">Draft requirements with Claude</button><span class="note">Suggests specs, materials, labour and a budget from the vision.</span></div>`:""}
+    <div class="sec"><h3>Build specifications</h3>${tableHTML(p.specs,[{h:"Item",k:"label"},{h:"Specification",k:"value"}])}
+      ${editable?`<form class="addrow two" data-add="specs"><input type="text" name="a" placeholder="Item, e.g. Lamp spacing" aria-label="Specification item" required><input type="text" name="b" placeholder="12 m" aria-label="Specification value" required><button class="btn" type="submit">Add</button></form>`:""}</div>
+    <div class="sec"><h3>Resources</h3>${tableHTML(p.resources,[{h:"Material",k:"item"},{h:"Qty",n:1,f:r=>num(r.qty)+" "+(r.unit||"")}])}
+      ${editable?`<form class="addrow" data-add="resources"><input type="text" name="a" placeholder="LED lamps" aria-label="Material" required><input type="number" name="b" placeholder="Qty" min="0" aria-label="Quantity" required><input type="text" name="c" placeholder="pcs" aria-label="Unit"><button class="btn" type="submit">Add</button></form>`:""}</div>
+    <div class="sec"><h3>Labour</h3>${tableHTML(p.labour,[{h:"Role",k:"role"},{h:"Hours",n:1,f:r=>num(r.hours)+" h"}])}
+      ${editable?`<form class="addrow two" data-add="labour"><input type="text" name="a" placeholder="Electrician" aria-label="Role" required><input type="number" name="b" placeholder="Hours" min="0" aria-label="Hours" required><button class="btn" type="submit">Add</button></form>`:""}</div>
+    ${editable?`<div class="field" style="max-width:220px"><label for="budgetIn">Budget target (€)</label><input id="budgetIn" type="number" min="0" step="500" value="${p.budget||""}" placeholder="e.g. 25000"></div>`:""}`;
+  const mine=S.pledges.filter(x=>x.pid===p.id).sort((a,b)=>(b.at||0)-(a.at||0));
+  const contribTab=`
+    <form class="sec" id="pledgeForm"><h3>Pledge support</h3>
+      <div class="seg" role="group" aria-label="Contribution type" id="pKind"><button type="button" data-k="funds" aria-pressed="true">Funds</button><button type="button" data-k="labour" aria-pressed="false">Labour</button><button type="button" data-k="materials" aria-pressed="false">Materials</button></div>
+      <div class="row" style="flex-wrap:nowrap"><input id="pAmount" type="number" min="1" placeholder="Amount in €" aria-label="Amount" style="max-width:150px" required><input id="pNote" type="text" placeholder="Note (optional)" aria-label="Note"></div>
+      <div class="row"><button class="btn primary" type="submit">Pledge</button><span class="note">Pledges are commitments only. No money is collected in this version.</span></div></form>
+    <div class="sec"><h3>Pledges${mine.length?` (${mine.length})`:""}</h3>
+      ${p.example?`<div class="note">Example totals include ${eur(EX_PLEDGES[p.id].funds)} and ${num(EX_PLEDGES[p.id].labour)} h of seeded demo pledges.</div>`:""}
+      ${mine.length?mine.map(x=>`<div class="pl"><span>${x.kind==="funds"?"Funds":x.kind==="labour"?"Labour":"Materials"}${x.note?` · ${esc(x.note)}`:""}${x.uid===S.uid?' <span class="chip">You</span>':""}</span><b>${x.kind==="funds"?eur(x.amount):x.kind==="labour"?num(x.amount)+" h":esc(x.amount)}</b></div>`).join(""):`<div class="empty">No pledges yet. Be the first.</div>`}</div>`;
+  panel.innerHTML=`<div class="view">
+    <div class="row spread"><button class="btn ghost" type="button" id="back">← All projects</button>${p.example?'<span class="chip ex">Example project</span>':""}</div>
+    ${compareHTML(p.before,p.after)}
+    <div class="sec"><span class="eyebrow">${esc(p.category||"Project")} · <span class="coords">${fmtLL(p.lat,p.lng)}</span></span><h2>${esc(p.title)}</h2><div class="note">${esc(p.place||"")}</div></div>
+    <div class="row"><button class="btn vote" type="button" id="voteBtn" aria-pressed="${voted}">▲ ${voted?"Upvoted":"Upvote"} · ${num(votesFor(p))}</button></div>
+    <div class="meta"><div><b>${eur(t.funds)}</b><span>of ${p.budget?eur(p.budget):"—"}</span></div><div><b>${num(t.labour)} h</b><span>of ${need?num(need)+" h":"—"} labour</span></div><div><b>${Math.round(pct)}%</b><span>funded</span></div></div>
+    <div class="bar" style="height:7px"><div style="width:${pct}%"></div></div>
+    <blockquote class="quote">${esc(p.prompt)}</blockquote>
+    ${p.context?`<p style="margin:0;color:var(--muted)">${esc(p.context)}</p>`:""}
+    <div class="tabs" role="tablist"><button role="tab" type="button" data-tab="req" aria-selected="${S.tab==="req"}">Requirements</button><button role="tab" type="button" data-tab="contrib" aria-selected="${S.tab==="contrib"}">Contribute</button></div>
+    ${S.tab==="req"?reqTab:contribTab}
+  </div>`;
+  wireCompare(panel);
+  $("#back").onclick=()=>{ S.view="list"; renderList(); draw(); };
+  panel.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.tab; renderDetail(); });
+  $("#voteBtn").onclick=()=>toggleVote(p);
+  panel.querySelectorAll("form[data-add]").forEach(f=>f.onsubmit=e=>{ e.preventDefault(); const k=f.dataset.add, a=f.a.value.trim(), b=f.b.value.trim(), c=f.c?f.c.value.trim():"";
+    const row = k==="specs"?{label:a,value:b}: k==="resources"?{item:a,qty:+b,unit:c||"pcs"}:{role:a,hours:+b};
+    updateProject(p,{[k]:[...(p[k]||[]),row]}); });
+  const bi=$("#budgetIn"); if(bi) bi.onchange=()=>updateProject(p,{budget:+bi.value||0});
+  const ai=$("#aiDraft"); if(ai) ai.onclick=()=>aiDraft(p,ai);
+  const pf=$("#pledgeForm"); if(pf){ let kind="funds"; const am=$("#pAmount");
+    panel.querySelectorAll("#pKind button").forEach(b=>b.onclick=()=>{ kind=b.dataset.k; panel.querySelectorAll("#pKind button").forEach(x=>x.setAttribute("aria-pressed",x===b)); am.type=kind==="materials"?"text":"number"; am.placeholder=kind==="funds"?"Amount in €":kind==="labour"?"Hours":"e.g. 20 bags of cement"; });
+    pf.onsubmit=e=>{ e.preventDefault(); const v=am.value.trim(); if(!v) return; const rec={pid:p.id,kind,amount:kind==="materials"?v:+v,note:$("#pNote").value.trim(),uid:S.uid,at:Date.now()};
+      dbWrite(db=>db.collection("pledges").add(rec), ()=>S.pledges.push({id:uidLocal(),...rec})).then(ok=>ok&&toast("Pledge added")); }; }
+}
+function toggleVote(p){ const id=p.id+"__"+S.uid.replace(/[^A-Za-z0-9_-]/g,"");
+  if(iVoted(p)) dbWrite(db=>db.collection("votes").doc(id).delete(), ()=>{ S.votes=S.votes.filter(v=>!(v.pid===p.id&&v.uid===S.uid)); });
+  else dbWrite(db=>db.collection("votes").doc(id).set({pid:p.id,uid:S.uid,at:Date.now()}), ()=>S.votes.push({id,pid:p.id,uid:S.uid})); }
+function updateProject(p,patch){ dbWrite(db=>db.collection("projects").doc(p.id).update(patch), ()=>Object.assign(p,patch)); }
+async function aiDraft(p,btn){
+  btn.disabled=true; btn.innerHTML=`<span class="spin"></span> Drafting…`;
+  try{
+    const out=await S.sample.json(`You help plan small urban improvement projects. Propose realistic requirements for this project.
+Title: ${p.title}
+Location: ${p.place||fmtLL(p.lat,p.lng)}
+Vision: ${p.prompt}
+Context: ${p.context||"(none)"}
+Return only JSON: {"specs":[{"label":string,"value":string}],"resources":[{"item":string,"qty":number,"unit":string}],"labour":[{"role":string,"hours":number}],"budget_eur":number}. 3-6 items per list, metric units, budget as a single realistic euro figure for the location.`,{modelTier:"default"});
+    const patch={specs:[...(p.specs||[]),...(out.specs||[])].slice(0,12), resources:[...(p.resources||[]),...(out.resources||[])].slice(0,12), labour:[...(p.labour||[]),...(out.labour||[])].slice(0,12)};
+    if(!p.budget && out.budget_eur) patch.budget=Math.round(out.budget_eur);
+    await updateProject(p,patch); toast("Draft added. Edit anything that doesn't fit.");
+  }catch(e){ toast(e&&e.code==="not_granted"?"Claude drafting wasn't allowed on this page.":"Couldn't draft requirements. Try again."); }
+  btn.disabled=false; btn.textContent="Draft requirements with Claude";
+}
+
+/* ---------- create flow ---------- */
+function newDraft(){ return {step:1, photo:null, title:"", prompt:"", context:"", category:"Sidewalk", place:"", lat:null, lng:null, vision:null, variant:0, busy:false}; }
+$("#newBtn").onclick=()=>{ S.draft=newDraft(); S.view="create"; tempPin=null; renderPanel(); draw(); panel.scrollTop=0; };
+function aiPrompt(d){ return `Using this input picture, visualize around this context: ${d.prompt||"…"}${d.context?`\n\nBackground: ${d.context}`:""}\n\nKeep the same camera angle, street layout and surrounding buildings. Show a realistic, buildable improvement.`; }
+function renderCreate(){
+  const d=S.draft; const st=n=>d.step>n?"done":d.step===n?"on":"";
+  let body="";
+  if(d.step===1) body=`
+    <label class="drop" id="drop" for="file">${d.photo?`<img src="${d.photo}" alt="Your photo">`:`<b style="color:var(--ink)">Add a photo of the place</b><span>Drop an image here or choose a file. A street, a lot, a riverbank: what it looks like today.</span>`}</label>
+    <input id="file" type="file" accept="image/*" hidden>
+    <div class="row spread"><button class="btn ghost" type="button" id="useSample">No photo handy? Use a sample street</button><button class="btn primary" type="button" id="next1" ${d.photo?"":"disabled"}>Next</button></div>`;
+  else if(d.step===2) body=`
+    <div class="field"><label for="dPrompt">What do you envision?</label><textarea id="dPrompt" rows="2" placeholder="A beautiful sidewalk with nice lights">${esc(d.prompt)}</textarea></div>
+    <div class="field"><label for="dContext">Context</label><textarea id="dContext" rows="3" placeholder="Who uses this place, what's wrong with it today, any constraints">${esc(d.context)}</textarea></div>
+    <div class="field"><label for="dTitle">Project name</label><input id="dTitle" type="text" value="${esc(d.title)}" placeholder="Lit walkway on Main Street"></div>
+    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="dCat">Type</label><select id="dCat">${["Sidewalk","Street","Park","Riverside","Square","Building","Other"].map(c=>`<option ${c===d.category?"selected":""}>${c}</option>`).join("")}</select></div>
+      <div class="field" style="flex:2"><label for="dPlace">Place name</label><input id="dPlace" type="text" value="${esc(d.place)}" placeholder="City, country"></div></div>
+    <div class="field"><label>Location</label><div class="row"><button class="btn" type="button" id="pick">${d.lat!=null?"Move pin":"Place on map"}</button><span class="coords note">${d.lat!=null?fmtLL(d.lat,d.lng):"No location yet"}</span></div></div>
+    <div class="row spread"><button class="btn ghost" type="button" id="back1">← Photo</button><button class="btn primary" type="button" id="next2">Next</button></div>`;
+  else body=`
+    <div class="sec"><span class="eyebrow">Prompt sent to the image model</span><div class="prompt">${esc(aiPrompt(d))}</div></div>
+    ${d.vision?compareHTML(d.photo,d.vision):`<div class="compare"><img src="${d.photo}" alt="Your photo"></div>`}
+    ${d.vision?`<p class="note">This prototype simulates the result in the browser. In the real app this step calls OpenAI image generation with your photo and the prompt above.</p>`:""}
+    <div class="row spread"><button class="btn ghost" type="button" id="back2">← Edit description</button>
+      <div class="row">${d.vision?`<button class="btn" type="button" id="retry">Try again</button><button class="btn primary" type="button" id="approve">Approve and add to map</button>`:`<button class="btn primary" type="button" id="viz" ${d.busy?"disabled":""}>${d.busy?'<span class="spin"></span> Visualizing…':"Visualize"}</button>`}</div></div>`;
+  panel.innerHTML=`<div class="view"><div class="row spread"><h2>New vision</h2><button class="btn ghost" type="button" id="cancel">Cancel</button></div>
+    <div class="steps"><span class="${st(1)}">1 · Photo</span><span class="${st(2)}">2 · Describe</span><span class="${st(3)}">3 · Visualize</span></div>${body}</div>`;
+  $("#cancel").onclick=()=>{ S.view=S.sel?"detail":"list"; S.picking=false; canvas.classList.remove("picking"); $("#pickBanner").hidden=true; tempPin=null; renderPanel(); draw(); };
+  wireCompare(panel);
+  if(d.step===1){
+    const f=$("#file"), drop=$("#drop");
+    const load=file=>{ if(!file||!file.type.startsWith("image/")) return toast("Choose an image file (JPG, PNG or HEIC exported as JPG)."); const r=new FileReader(); r.onload=async()=>{ try{ d.photo=await shrink(r.result,1200,0.85); d.vision=null; renderCreate(); }catch(e){ toast("That image couldn't be read. Try a JPG or PNG."); } }; r.readAsDataURL(file); };
+    f.onchange=()=>load(f.files[0]);
+    drop.ondragover=e=>{e.preventDefault();drop.classList.add("over");}; drop.ondragleave=()=>drop.classList.remove("over");
+    drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");load(e.dataTransfer.files[0]);};
+    $("#useSample").onclick=()=>{ d.photo=drawScene("sidewalk",false,Math.floor(Math.random()*999)+2); d.vision=null; if(!d.prompt) d.prompt="A beautiful sidewalk with nice lights"; renderCreate(); };
+    $("#next1").onclick=()=>{ d.step=2; renderCreate(); };
+  } else if(d.step===2){
+    const sync=()=>{ d.prompt=$("#dPrompt").value.trim(); d.context=$("#dContext").value.trim(); d.title=$("#dTitle").value.trim(); d.category=$("#dCat").value; d.place=$("#dPlace").value.trim(); };
+    ["dPrompt","dContext","dTitle","dCat","dPlace"].forEach(id=>$("#"+id).addEventListener("input",sync));
+    $("#pick").onclick=()=>{ sync(); S.picking=true; canvas.classList.add("picking"); $("#pickBanner").hidden=false; if(innerWidth<=860) wrap.scrollIntoView({behavior:"smooth"}); };
+    $("#back1").onclick=()=>{ sync(); d.step=1; renderCreate(); };
+    $("#next2").onclick=()=>{ sync(); if(!d.prompt) return toast("Describe what you envision first."); if(d.lat==null) return toast("Place the project on the map first."); if(!d.title) d.title=d.prompt.length>48?d.prompt.slice(0,46)+"…":d.prompt; d.vision=null; d.step=3; renderCreate(); };
+  } else {
+    $("#back2").onclick=()=>{ d.step=2; renderCreate(); };
+    const run=async()=>{ d.busy=true; d.vision=null; renderCreate(); await new Promise(r=>setTimeout(r,1100)); try{ d.vision=await visualizePhoto(d.photo,d.prompt,d.variant++); }catch(e){ toast("Couldn't render the preview. Try another photo."); } d.busy=false; renderCreate(); };
+    const v=$("#viz"); if(v) v.onclick=run; const rt=$("#retry"); if(rt) rt.onclick=run;
+    const ap=$("#approve"); if(ap) ap.onclick=async()=>{ ap.disabled=true;
+      const proj={title:d.title,prompt:d.prompt,context:d.context,category:d.category,place:d.place,lat:d.lat,lng:d.lng,before:await shrink(d.photo,720,0.72),after:await shrink(d.vision,720,0.72),specs:[],resources:[],labour:[],budget:0,uid:S.uid,createdAt:Date.now()};
+      const id=uidLocal();
+      const ok=await dbWrite(db=>db.collection("projects").doc(id).set(proj), ()=>S.userProjects.push({id,...proj}));
+      if(!ok){ ap.disabled=false; return; }
+      if(S.mode==="db") S.userProjects=[{id,...proj},...S.userProjects.filter(x=>x.id!==id)];
+      tempPin=null; S.draft=null; toast("Your project is on the map"); openProject(id,true); };
+  }
+}
+
+/* ---------- boot ---------- */
+resize(); renderAll(); connect();
+})();
+</script>
+</body>
+</html>
